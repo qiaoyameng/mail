@@ -394,7 +394,42 @@ is another message which can have many or no parts.
 A message will only have parts if it is a multipart/mixed or multipart/related
 content type and has a boundary defined.
 
+### Selecting a Body for Preview
+
+`Mail::BodyView` picks the part of a message that is best suited for
+display, given the media types you can render and your preference order.
+It also tells you where that part lives in the MIME tree and which
+Content-ID resources (e.g. images in a multipart/related container) the
+selected body may reference:
+
+```ruby
+mail = Mail.read('multipart_email')
+view = mail.body_view(supported: %w[text/html text/plain],
+                      prefer:    %w[text/html text/plain])
+
+view.status     #=> :ok (also :missing_start or :unsupported)
+view.part       #=> the Mail::Part to display
+view.path       #=> [0, 1] child indexes from the message root
+view.mime_path  #=> ["multipart/alternative", "text/html"]
+view.resources  #=> { "logo@example.com" => #<Mail::Part ...> }
+
+# Resolve a "cid:..." URL from the HTML body to a resource part:
+view.resolve_cid('cid:logo@example.com') #=> #<Mail::Part ...>
+```
+
+Selection rules: multipart/alternative branches are ranked by your
+preference order; multipart/related uses its `start` parameter to find
+the root part (falling back to the first part, reported as
+`:missing_start`, when `start` names no part); message/rfc822
+attachments are never mistaken for the outer body and their Content-IDs
+never leak into the outer resource map. A Content-ID duplicated within
+one multipart/related scope is reported in `view.ambiguities` and raises
+`Mail::BodyView::AmbiguousContentIdError` on resolution rather than
+silently picking the first match. BodyView is read-only: it never
+reorders parts or generates Content-IDs.
+
 ### Testing and Extracting Attachments
+
 ```ruby
 mail.attachments.each do | attachment |
   # Attachments is an AttachmentsList object containing a

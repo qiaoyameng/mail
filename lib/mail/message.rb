@@ -1939,6 +1939,19 @@ module Mail
       all_parts.detect { |p| p.mime_type == mt && !p.attachment? }
     end
 
+    # Selects the body part best suited for display, given the media types
+    # the caller can render. Returns a Mail::BodyView::Result describing
+    # the chosen part, its MIME path within the message tree and the
+    # Content-ID resources the body can reference.
+    #
+    #   view = mail.body_view(prefer: %w[text/html text/plain])
+    #   view.part.decoded if view.ok?
+    #
+    # See Mail::BodyView for the full selection and resource rules.
+    def body_view(supported: BodyView::DEFAULT_SUPPORTED, prefer: nil)
+      BodyView.select(self, supported: supported, prefer: prefer)
+    end
+
     # Skips the deletion of this message. All other messages
     # flagged for delete still will be deleted at session close (i.e. when
     # #find exits). Only has an effect if you're using #find_and_delete
