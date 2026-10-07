@@ -1634,6 +1634,13 @@ module Mail
       parts.attachments
     end
 
+    # Selects a displayable body part and the multipart/related resources that
+    # the selected body references. The parser never reorders parts, creates
+    # Content-IDs, or descends into attached forwarded messages.
+    def body_view(supported_media_types, preferred_media_types = supported_media_types)
+      Mail::BodyView.parse(self, supported_media_types, preferred_media_types)
+    end
+
     def has_attachments?
       !attachments.empty?
     end
