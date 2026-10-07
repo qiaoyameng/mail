@@ -11,6 +11,8 @@ Features:
 
 * Updated README to improve around sending multipart mail @kapfenho
 * Add delivery_interceptors method to Mail class to fetch registered interceptors @ghousemohamed
+* Add Mail::Mbox, a single-pass streaming mboxrd reader with per-message
+  size limits and envelope metadata preserved outside the RFC headers
 
 Code Improvements:
 

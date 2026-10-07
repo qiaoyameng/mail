@@ -373,6 +373,56 @@ mail.decoded         #=> 'This is the body of the email...
 
 Many more methods available.
 
+### Reading an mboxrd Archive
+
+Mail can stream messages out of an mboxrd archive (RFC 4155) in a single
+pass, so large archives and non-seekable inputs (pipes, sockets) are handled
+without loading everything into memory:
+
+```ruby
+Mail.read_mbox('inbox.mbox') do |record|
+  record.index          #=> 0-based position in the archive
+  record.mail           #=> Mail::Message parsed from the RFC 5322 content
+  record.start_offset   #=> byte offset of the "From " line
+  record.end_offset     #=> byte offset of the start of the next message
+  record.envelope_from  #=> 'mda@example.com' (archive metadata only)
+  record.envelope_date  #=> DateTime from the "From " line
+  record.complete?      #=> false if the final message was truncated
+end
+```
+
+Quoted `>From` lines in message bodies are unquoted per the mboxrd rules
+(only one leading `>` is removed, so `>>From` round-trips to `>From`), and
+the envelope sender and date stay on the record rather than being added to
+the RFC headers. An IO-like object responding to `#gets` may be passed
+instead of a path; Mail never closes an IO it did not open, and stopping
+early (for example with `break`) lets a later call resume at the next
+message.
+
+Callers can cap how much content a single message may contain. When a
+message exceeds the cap, the reader scans ahead to the next separator and
+reports the message's exact byte range; rescue and re-iterate to continue,
+or use a callback:
+
+```ruby
+# Skip oversized messages while continuing the scan
+Mail.read_mbox('inbox.mbox',
+               max_message_size: 10 * 1024 * 1024,
+               on_message_too_large: ->(error) { :skip }) do |record|
+  import(record.mail)
+end
+
+# Or rescue; the reader is already positioned at the next message
+reader = Mail::Mbox.new(io, max_message_size: 10 * 1024 * 1024)
+loop do
+  reader.each { |record| import(record.mail) }
+  break
+rescue Mail::Mbox::MessageTooLarge => error
+  log_oversize(error.start_offset, error.end_offset)
+  retry
+end
+```
+
 ### Reading a Multipart Email
 
 ```ruby

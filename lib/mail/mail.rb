@@ -169,6 +169,12 @@ module Mail
     self.new(File.open(filename, 'rb') { |f| f.read })
   end
 
+  # Streams messages out of an mboxrd archive (see Mail::Mbox). +source+ is
+  # a path or any IO-like object responding to #gets.
+  def self.read_mbox(source, **options, &block)
+    Mail::Mbox.foreach(source, **options, &block)
+  end
+
   # Delete all emails from the default retriever
   # See Mail::Retriever for a complete documentation.
   def self.delete_all(*args, &block)
