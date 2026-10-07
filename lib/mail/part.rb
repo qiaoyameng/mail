@@ -47,6 +47,16 @@ module Mail
       (main_type =~ /message/i && sub_type =~ /delivery-status/i) && body =~ /Status:/
     end
 
+    # Returns a Mail::DeliveryStatus giving structured access to this
+    # message/delivery-status part: one per-message block plus one block
+    # per recipient, each keeping its own fields (and their order) so a
+    # missing field in one recipient's block never shifts the fields of
+    # the next recipient. Returns nil if this is not a delivery status
+    # report part.
+    def delivery_status
+      delivery_status_report_part? ? parse_structured_delivery_status_report : nil
+    end
+
     def delivery_status_data
       delivery_status_report_part? ? parse_delivery_status_report : {}
     end
@@ -59,6 +69,11 @@ module Mail
       end
     end
 
+    # The following convenience methods flatten the per-recipient blocks of
+    # the report: with a single recipient they return that recipient's
+    # value, with multiple recipients they return an array of the values in
+    # recipient order (recipients missing the field contribute no entry).
+    # Use #delivery_status to get the values aligned per recipient instead.
 
     # Either returns the action if the message has just a single report, or an
     # array of all the actions, one for each report
@@ -112,6 +127,10 @@ module Mail
 
     def parse_delivery_status_report
       @delivery_status_data ||= Header.new(body.to_s.gsub("\r\n\r\n", "\r\n"))
+    end
+
+    def parse_structured_delivery_status_report
+      @delivery_status ||= DeliveryStatus.new(body.to_s)
     end
 
   end

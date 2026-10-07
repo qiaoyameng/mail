@@ -562,6 +562,26 @@ Results in the same email as done using the block form
 @mail.retryable?       #=> false
 ```
 
+A delivery status notification can report on several recipients at once.
+The convenience methods above flatten the report: with multiple recipients
+they return an array of values in recipient order (recipients missing a
+field contribute no entry), which loses the association between fields.
+Use the structured interface instead, which keeps one block per recipient
+and preserves extension fields and their order within each block:
+
+```ruby
+@mail.delivery_status.message_block['reporting-mta'] #=> "dns; mail.example.com"
+
+@mail.delivery_status.recipient_blocks.map do |rcpt|
+  [rcpt.final_recipient, rcpt.action, rcpt.status, rcpt.retryable?]
+end
+#=> [["rfc822; mikel@dont.exist.com", "failed", "5.5.0", false], ...]
+```
+
+A missing field or malformed status code only makes that recipient's block
+diagnose as unknown (`retryable?` returns nil); it never shifts the fields
+of the following recipients.
+
 ### Attaching and Detaching Files
 
 You can just read the file off an absolute path, Mail will try
