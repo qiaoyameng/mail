@@ -562,6 +562,34 @@ Results in the same email as done using the block form
 @mail.retryable?       #=> false
 ```
 
+### DKIM Canonicalization (RFC 6376)
+
+Mail does not sign DKIM signatures or manage private keys — that belongs
+to your signing service. What Mail provides is the canonicalized byte
+stream the signing service hashes, computed from the raw message bytes
+(never re-rendered through `Mail::Message#encoded`, which may reorder or
+add header fields):
+
+```ruby
+raw = File.binread('/path/to/message.eml')
+
+# Header canonicalization, selecting fields per the DKIM h= tag.
+# Repeated names select occurrences from the bottom up.
+headers = Mail::DKIM.canonicalized_headers(raw, 'from:to:subject:from', mode: :relaxed)
+
+# Body canonicalization, one-shot or streaming, with optional l= limit
+# counted in canonicalized bytes.
+header_block, body = Mail::DKIM.split_message(raw)
+Mail::DKIM.canonicalized_body(body, mode: :relaxed, length: 1024)
+
+digest = Digest::SHA256.new
+canon  = Mail::DKIM::BodyCanonicalizer.new(:relaxed, sink: digest)
+canon.update(chunk1)
+canon.update(chunk2)
+canon.finish
+digest.hexdigest
+```
+
 ### Attaching and Detaching Files
 
 You can just read the file off an absolute path, Mail will try
