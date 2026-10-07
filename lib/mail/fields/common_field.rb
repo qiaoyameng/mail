@@ -35,6 +35,19 @@ module Mail
       parse
     end
 
+    def initialize_copy(original)
+      super
+      @value =
+        case @value
+        when String, Array
+          @value.dup
+        else
+          @value
+        end
+      @errors = @errors.dup
+      @element = nil
+    end
+
     def parse
       tap(&:element)
     end

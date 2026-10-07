@@ -60,6 +60,7 @@ module Mail
       super
       @fields = @fields.dup
       @fields.map!(&:dup)
+      @raw_source = @raw_source.dup if @raw_source
     end
 
     # Returns an array of all the fields in the header in order that they

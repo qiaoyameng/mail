@@ -258,6 +258,14 @@ module Mail
       self
     end
 
+    def prepare_delivery
+      envelope_from = smtp_envelope_from
+      envelope_to = smtp_envelope_to.dup
+      encoded_message = dup.encoded
+
+      Mail::PreparedDelivery.new(envelope_from, envelope_to, encoded_message)
+    end
+
     # This method bypasses checking perform_deliveries and raise_delivery_errors,
     # so use with caution.
     #
@@ -389,8 +397,27 @@ module Mail
     end
 
     def initialize_copy(original)
+      original_body = original.instance_variable_get(:@body)
+      original_parts = original_body ? original_body.parts.to_a : []
+      original_text_part = original.instance_variable_get(:@text_part)
+      original_html_part = original.instance_variable_get(:@html_part)
+
       super
       @header = @header.dup
+      @body = @body.dup if @body
+      @body_raw = @body_raw.dup if @body_raw
+      @smtp_envelope_from = @smtp_envelope_from.dup if @smtp_envelope_from
+      @smtp_envelope_to = @smtp_envelope_to.dup if @smtp_envelope_to
+      @raw_source = @raw_source.dup if @raw_source
+      @raw_envelope = @raw_envelope.dup if @raw_envelope
+
+      copied_parts = @body&.parts.to_a
+      original_parts.each_with_index do |part, index|
+        @text_part = copied_parts[index] if original_text_part && part.equal?(original_text_part)
+        @html_part = copied_parts[index] if original_html_part && part.equal?(original_html_part)
+      end
+      @text_part = nil unless original_text_part
+      @html_part = nil unless original_html_part
     end
 
     # Provides access to the raw source of the message as it was when it

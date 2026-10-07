@@ -40,5 +40,11 @@ module Mail
       p = "; #{parameters.decoded}" if parameters.length > 0
       "#{disposition_type}#{p}"
     end
+
+    def initialize_copy(original)
+      super
+      @parameters = @parameters.dup if defined?(@parameters)
+      @filename = @filename.dup if @filename
+    end
   end
 end

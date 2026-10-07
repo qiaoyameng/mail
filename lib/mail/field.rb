@@ -213,6 +213,12 @@ module Mail
       @field = field
     end
 
+    def initialize_copy(original)
+      super
+      @unparsed_value = deep_dup(@unparsed_value)
+      @field = @field.dup if defined?(@field)
+    end
+
     def field
       @field ||= create_field(@name, @unparsed_value, @charset)
     end
@@ -308,6 +314,19 @@ module Mail
     #  evaluation.
     def unfold(string)
       string.gsub(Constants::UNFOLD_WS, '\1')
+    end
+
+    def deep_dup(value)
+      case value
+      when String
+        value.dup
+      when Array
+        value.map { |item| deep_dup(item) }
+      when Hash
+        value.transform_values { |item| deep_dup(item) }
+      else
+        value
+      end
     end
   end
 end

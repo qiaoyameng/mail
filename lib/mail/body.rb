@@ -50,6 +50,21 @@ module Mail
       set_charset
     end
 
+    def initialize_copy(original)
+      super
+      @raw_source = @raw_source.dup if @raw_source
+      @preamble = @preamble.dup if @preamble
+      @epilogue = @epilogue.dup if @epilogue
+      @part_sort_order = @part_sort_order.dup if @part_sort_order
+
+      original_parts = parts.to_a
+      copied_parts = original_parts.map(&:dup)
+      copied_parts.each_with_index do |part, index|
+        part.instance_variable_set(:@delivery_method, original_parts[index].delivery_method)
+      end
+      @parts = Mail::PartsList.new(copied_parts)
+    end
+
     def init_with(coder)
       coder.map.each { |k, v| instance_variable_set(:"@#{k}", v) }
       @parts = Mail::PartsList.new(coder['parts'])

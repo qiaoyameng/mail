@@ -13,6 +13,17 @@ module Mail
   #
   # Parameters are defined in RFC2045. Split keys are in RFC2231.
   class ParameterHash < IndifferentHash #:nodoc:
+    def dup
+      self.class.new(self)
+    end
+
+    def initialize_copy(original)
+      super
+      each_pair do |key, value|
+        self[key] = value.dup if value.is_a?(String)
+      end
+    end
+
     def [](key_name)
       key_pattern = Regexp.escape(key_name.to_s)
       pairs = []

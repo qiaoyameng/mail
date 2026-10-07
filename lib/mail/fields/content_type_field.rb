@@ -96,6 +96,14 @@ module Mail
       "#{name}: #{content_type}#{p}\r\n"
     end
 
+    def initialize_copy(original)
+      super
+      @main_type = @main_type.dup if @main_type
+      @sub_type = @sub_type.dup if @sub_type
+      @parameters = @parameters.dup if defined?(@parameters)
+      @filename = @filename.dup if @filename
+    end
+
     def decoded
       p = "; #{parameters.decoded}" if parameters && parameters.length > 0
       "#{content_type}#{p}"

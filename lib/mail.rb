@@ -3,6 +3,8 @@
 module Mail # :doc:
 
   require 'date'
+  require 'json'
+  require 'digest'
   require 'shellwords'
 
   require 'uri'
@@ -45,6 +47,7 @@ module Mail # :doc:
   require 'mail/parts_list'
   require 'mail/attachments_list'
   require 'mail/body'
+  require 'mail/prepared_delivery'
   require 'mail/field'
   require 'mail/field_list'
 
