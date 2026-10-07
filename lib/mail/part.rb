@@ -51,6 +51,16 @@ module Mail
       delivery_status_report_part? ? parse_delivery_status_report : {}
     end
 
+    # Structured view of this message/delivery-status part (RFC 3464).
+    # Returns a Mail::DeliveryStatus exposing the per-message block and
+    # one block per recipient, or nil if this is not a delivery status
+    # report part.
+    def delivery_status
+      if delivery_status_report_part?
+        @delivery_status ||= DeliveryStatus.new(body.to_s)
+      end
+    end
+
     def bounced?
       if action.is_a?(Array)
         !!(action.first =~ /failed/i)
@@ -66,18 +76,26 @@ module Mail
       get_return_values('action')
     end
 
+    # Single value for a single recipient report, or an array of values in
+    # order of appearance when the report covers multiple recipients.
     def final_recipient
       get_return_values('final-recipient')
     end
 
+    # Single value for a single recipient report, or an array of values in
+    # order of appearance when the report covers multiple recipients.
     def error_status
       get_return_values('status')
     end
 
+    # Single value for a single recipient report, or an array of values in
+    # order of appearance when the report covers multiple recipients.
     def diagnostic_code
       get_return_values('diagnostic-code')
     end
 
+    # Single value for a single recipient report, or an array of values in
+    # order of appearance when the report covers multiple recipients.
     def remote_mta
       get_return_values('remote-mta')
     end

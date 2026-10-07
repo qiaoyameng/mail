@@ -562,6 +562,27 @@ Results in the same email as done using the block form
 @mail.retryable?       #=> false
 ```
 
+A delivery status notification can report on several recipients at once.
+The accessors above stay compatible: they return a single value for a
+single-recipient report and an array of values (in order of appearance)
+for a multi-recipient report.  To keep the fields of each recipient
+together, use the structured reader, which separates the per-message
+block from one block per recipient and preserves extension fields and
+their order inside each block:
+
+```ruby
+@mail = Mail.read('/path/to/bounce_message.eml')
+
+status = @mail.delivery_status
+status.message_fields['reporting-mta']        #=> dns; mail.example.com
+
+status.recipients.map(&:final_recipient)      #=> [rfc822;one@example.com, rfc822;two@example.com]
+status.recipients.map(&:action)               #=> [failed, delayed]
+status.recipients.map(&:status)               #=> [5.1.1, 4.2.2]
+status.recipients.map(&:retryable?)           #=> [false, true]
+status.recipients.first['x-postfix-queue-id'] #=> extension fields are kept per block
+```
+
 ### Attaching and Detaching Files
 
 You can just read the file off an absolute path, Mail will try

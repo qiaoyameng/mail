@@ -123,7 +123,100 @@ RSpec.describe "multipart/report emails" do
       end
     end
 
+    describe "structured delivery status with multiple recipients" do
+      let(:mail) do
+        Mail.read_from_string(<<-EMAIL.gsub("\n", "\r\n"))
+From: postmaster@example.com
+To: sender@example.net
+Subject: Delivery Status Notification
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; boundary="dsn-boundary"
+
+--dsn-boundary
+Content-Type: text/plain
+
+This is a delivery status notification.
+
+--dsn-boundary
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns; mail.example.com
+X-Postfix-Queue-ID: ABC123
+Arrival-Date: Mon, 01 Jan 2024 00:00:00 +0000
+
+Final-Recipient: rfc822; delivered@example.com
+Action: delivered
+Status: 2.0.0
+Diagnostic-Code: smtp; 250 2.0.0 Ok
+
+Final-Recipient: rfc822; delayed@example.com
+Action: delayed
+Status: 4.2.2
+Remote-MTA: dns; mx1.example.com
+Remote-MTA: dns; mx2.example.com
+Diagnostic-Code: smtp; 452 4.2.2 Mailbox full
+
+Final-Recipient: rfc822; failed@example.com
+Action: failed
+Status: 5.1.1
+
+Final-Recipient: rfc822; broken@example.com
+Action: failed
+Status: garbage
+Diagnostic-Code:
+
+--dsn-boundary--
+        EMAIL
+      end
+
+      let(:recipients) { mail.delivery_status.recipients }
+
+      it "exposes the per-message block with its extension fields" do
+        message_fields = mail.delivery_status.message_fields
+        expect(message_fields['reporting-mta']).to eq 'dns; mail.example.com'
+        expect(message_fields['x-postfix-queue-id']).to eq 'ABC123'
+        expect(message_fields.field_names).to eq %w[Reporting-MTA X-Postfix-Queue-ID Arrival-Date]
+      end
+
+      it "returns one block per recipient, in order" do
+        expect(recipients.map(&:final_recipient)).to eq [
+          'rfc822; delivered@example.com',
+          'rfc822; delayed@example.com',
+          'rfc822; failed@example.com',
+          'rfc822; broken@example.com'
+        ]
+        expect(recipients.map(&:action)).to eq %w[delivered delayed failed failed]
+        expect(recipients.map(&:status)).to eq %w[2.0.0 4.2.2 5.1.1 garbage]
+      end
+
+      it "judges retryability per recipient, nil for the malformed status" do
+        expect(recipients.map(&:retryable?)).to eq [false, true, false, nil]
+      end
+
+      it "keeps a missing diagnostic-code local to its own block" do
+        expect(recipients[2].diagnostic_code).to be_nil
+        expect(recipients[3].diagnostic_code).to eq ''
+        expect(recipients[0].diagnostic_code).to eq 'smtp; 250 2.0.0 Ok'
+        expect(recipients[1].diagnostic_code).to eq 'smtp; 452 4.2.2 Mailbox full'
+      end
+
+      it "keeps duplicate optional fields in order within their block" do
+        expect(recipients[1].values('remote-mta')).to eq ['dns; mx1.example.com', 'dns; mx2.example.com']
+        expect(recipients[0].values('remote-mta')).to eq []
+      end
+
+      it "keeps the legacy single-value and multi-value accessors working" do
+        expect(mail.action).to eq %w[delivered delayed failed failed]
+        expect(mail.error_status).to eq %w[2.0.0 4.2.2 5.1.1 garbage]
+        expect(mail.final_recipient).to eq [
+          'rfc822; delivered@example.com',
+          'rfc822; delayed@example.com',
+          'rfc822; failed@example.com',
+          'rfc822; broken@example.com'
+        ]
+      end
+    end
+
   end
 
 end
-

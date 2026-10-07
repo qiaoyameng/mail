@@ -1558,6 +1558,16 @@ module Mail
       @delivery_status_part
     end
 
+    # Structured view of the enclosed message/delivery-status report
+    # (RFC 3464).  Returns a Mail::DeliveryStatus that separates the
+    # per-message fields from one block per recipient, or nil when this
+    # message is not a delivery status report.
+    #
+    #   mail.delivery_status.recipients.map(&:final_recipient)
+    def delivery_status
+      delivery_status_part and delivery_status_part.delivery_status
+    end
+
     def bounced?
       delivery_status_part and delivery_status_part.bounced?
     end
