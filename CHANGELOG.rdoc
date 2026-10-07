@@ -9,6 +9,10 @@ Compatibility:
 
 Features:
 
+* Add Mail::Message#prepare_delivery returning an immutable Mail::PreparedDelivery
+  snapshot of the SMTP envelope and encoded message bytes, so queued retries send
+  identical bytes; snapshots can be persisted with #dump and restored with
+  Mail::PreparedDelivery.restore
 * Updated README to improve around sending multipart mail @kapfenho
 * Add delivery_interceptors method to Mail class to fetch registered interceptors @ghousemohamed
 

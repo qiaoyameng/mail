@@ -305,6 +305,31 @@ mail.delivery_method :logger
 mail.delivery_method :logger, logger: other_logger, severity: :debug
 ```
 
+### Preparing an email for queued delivery:
+
+When a mail is sent through a queue that may retry delivery, every attempt
+should send the exact same bytes.  `prepare_delivery` captures an immutable
+snapshot of the SMTP envelope and the fully encoded message:
+
+```ruby
+snapshot = mail.prepare_delivery
+
+snapshot.envelope_from #=> 'me@test.lindsaar.net'
+snapshot.envelope_to   #=> ['you@test.lindsaar.net', 'hidden@test.lindsaar.net']
+snapshot.message       #=> the encoded email, ready to send as-is
+snapshot.digest        #=> SHA-256 hex digest of the message bytes
+```
+
+Auto generated values (Date, Message-ID, MIME boundary, transfer encoding)
+are fixed when the snapshot is prepared, Bcc recipients stay in the envelope
+but out of the visible headers, and later changes to the mail do not affect
+the snapshot.  Snapshots can be persisted and restored safely:
+
+```ruby
+stored = snapshot.dump
+snapshot = Mail::PreparedDelivery.restore(stored)
+```
+
 ### Getting Emails from a POP or IMAP Server:
 
 You can configure Mail to receive email using <code>retriever_method</code>

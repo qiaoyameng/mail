@@ -279,6 +279,42 @@ module Mail
       end
     end
 
+    # Prepares this message for delivery and returns an immutable
+    # Mail::PreparedDelivery snapshot holding the SMTP envelope and the fully
+    # encoded message bytes.
+    #
+    # The snapshot is taken once, so every retry of a queued delivery can send
+    # the exact same bytes.  Auto generated values (Date, Message-ID, MIME
+    # boundary and content transfer encoding) are fixed on the first
+    # preparation and copied back onto this message, so repeated calls keep
+    # producing the same bytes as long as the message content is unchanged.
+    #
+    # Bcc recipients are included in the envelope recipients but, following
+    # the normal sending semantics, are not present in the encoded headers.
+    #
+    # The snapshot is fully independent: later changes to this message, its
+    # attachments or its address arrays do not affect an already prepared
+    # snapshot, and reading the snapshot never triggers encoding or random
+    # value generation.  Call prepare_delivery again to capture new content
+    # into a new snapshot.
+    #
+    # If preparation fails (for example a blank envelope sender or recipient),
+    # this message is left untouched: no required fields are added to it.
+    #
+    # Example:
+    #
+    #  snapshot = mail.prepare_delivery
+    #  snapshot.envelope_from #=> 'mikel@test.lindsaar.net'
+    #  snapshot.envelope_to   #=> ['you@test.lindsaar.net']
+    #  snapshot.message       #=> "Date: ...\r\nFrom: ..."
+    #  snapshot.digest        #=> SHA-256 hex digest of the message bytes
+    def prepare_delivery
+      prepared = snapshot_copy
+      envelope = Mail::SmtpEnvelope.new(prepared)
+      apply_prepared_fields(prepared)
+      Mail::PreparedDelivery.new(envelope.from, envelope.to, envelope.message)
+    end
+
     def reply(*args, &block)
       self.class.new.tap do |reply|
         if message_id
@@ -2149,6 +2185,39 @@ module Mail
         end
       rescue => e # Net::SMTP errors or sendmail pipe errors
         raise e if raise_delivery_errors
+      end
+    end
+
+    # Deep copies this message so that preparing a delivery can encode the
+    # copy without filling in required fields on this message.  Only state
+    # that affects the encoded output is copied; delivery methods, handlers
+    # and other runtime objects are intentionally left out.
+    def snapshot_copy
+      ivars = [:@header, :@body, :@body_raw, :@raw_source, :@separate_parts,
+               :@charset, :@defaulted_charset, :@transport_encoding,
+               :@smtp_envelope_from, :@smtp_envelope_to]
+      values = ivars.map { |ivar| instance_variable_get(ivar) }
+      copies = Marshal.load(Marshal.dump(values))
+      self.class.new.tap do |copy|
+        ivars.zip(copies) { |ivar, value| copy.instance_variable_set(ivar, value) }
+      end
+    end
+
+    # Fixes the fields that were auto generated while preparing the snapshot
+    # (Date, Message-ID, MIME boundary, transfer encoding, ...) onto this
+    # message, so that the first preparation determines them and repeated
+    # preparations produce the same bytes.  Fields the message already has
+    # are left alone.
+    def apply_prepared_fields(prepared)
+      %w[date message-id mime-version content-type content-transfer-encoding].each do |name|
+        if !header[name] && (field = prepared.header[name])
+          header[name] = field.value
+        end
+      end
+
+      if prepared.body && prepared.body.multipart? && prepared.body.boundary &&
+         body && body.multipart? && body.boundary.nil?
+        body.boundary = prepared.body.boundary
       end
     end
 
